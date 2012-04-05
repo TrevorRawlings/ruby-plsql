@@ -137,7 +137,7 @@ module PLSQL
     def plsql_to_ruby_data_type(metadata)
       data_type, data_length = metadata[:data_type], metadata[:data_length]
       case data_type
-      when "VARCHAR", "CHAR"
+      when "VARCHAR", "CHAR", "CHARACTER VARYING"
         [String, data_length || 32767]
       when "TEXT"
         [String, nil]

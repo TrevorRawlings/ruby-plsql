@@ -103,7 +103,6 @@ module PLSQL
       end
     end
 
-      @return_sql << "END IF;\n" unless is_index_by_table
     def get_return_value
       # if function with output parameters
       if return_metadata && out_list.size > 0
@@ -164,7 +163,7 @@ module PLSQL
     end
 
     def schema_name
-      @schema_name ||= @procedure.schema_name
+      @schema_name ||= @schema.schema_name
     end
 
     def package_name

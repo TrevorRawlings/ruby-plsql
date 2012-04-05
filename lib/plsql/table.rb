@@ -38,23 +38,22 @@ module PLSQL
 
     def initialize(schema, table, override_schema_name = nil) #:nodoc:
       @schema = schema
-      @schema_name = override_schema_name || schema.schema_name
-      @table_name = table.to_s.upcase
+      @schema_name = override_schema_name || schema.schema_name.downcase
+      @table_name = table.to_s.downcase
       @columns = {}
 
+
       @schema.select_all(
-        "SELECT c.column_name, c.column_id position,
-              c.data_type, c.data_length, c.data_precision, c.data_scale, c.char_used,
-              c.data_type_owner, c.data_type_mod,
-              CASE WHEN c.data_type_owner IS NULL THEN NULL
-              ELSE (SELECT t.typecode FROM all_types t
-                WHERE t.owner = c.data_type_owner
-                AND t.type_name = c.data_type) END typecode,
-              c.nullable, c.data_default
-        FROM all_tab_columns c
-        WHERE c.owner = :owner
-        AND c.table_name = :table_name",
-        @schema_name, @table_name
+        " SELECT columns.column_name, columns.ordinal_position as position,
+                        columns.data_type, columns.character_maximum_length as data_length, columns.numeric_precision as  data_precision, columns.numeric_scale as data_scale, columns.character_maximum_length as char_used,
+                        columns.udt_schema as type_owner,
+                        columns.is_nullable as nullable, columns.column_default as data_default
+        FROM information_schema.tables
+        inner join information_schema.columns
+        on information_schema.columns.table_name = information_schema.tables.table_name
+        WHERE tables.table_schema = '#{@schema_name.downcase}'
+        AND tables.table_type = 'BASE TABLE'
+        AND tables.table_name = '#{@table_name.downcase}' "
       ) do |r|
         column_name, position,
               data_type, data_length, data_precision, data_scale, char_used,
@@ -64,18 +63,19 @@ module PLSQL
         # store column metadata
         @columns[column_name.downcase.to_sym] = {
           :position => position && position.to_i,
-          :data_type => data_type_owner && (typecode == 'COLLECTION' ? 'TABLE' : 'OBJECT' ) || data_type,
-          :data_length => data_type_owner ? nil : data_length && data_length.to_i,
+          :data_type => data_type.upcase,
+          :data_length => data_length && data_length.to_i,
           :data_precision => data_precision && data_precision.to_i,
           :data_scale => data_scale && data_scale.to_i,
           :char_used => char_used,
           :type_owner => data_type_owner,
-          :type_name => data_type_owner && data_type,
-          :sql_type_name => data_type_owner && "#{data_type_owner}.#{data_type}",
-          :nullable => nullable == 'Y', # store as true or false
+          :type_name => data_type_owner,
+          :sql_type_name => data_type,
+          :nullable => nullable == 'YES', # store as true or false
           :data_default => data_default && data_default.strip # remove leading and trailing whitespace
         }
       end
+
     end
 
     # list of table column names
@@ -332,7 +332,7 @@ module PLSQL
       def call_sql(params_string)
         case @operation
         when :insert
-          "INSERT INTO \"#{@table.schema_name}\".\"#{@table.table_name}\"(#{@argument_list[0].map{|a| a.to_s}.join(', ')}) VALUES (#{params_string});\n"
+          "INSERT INTO \"#{@table.schema_name.downcase}\".\"#{@table.table_name.downcase}\"(#{@argument_list[0].map{|a| a.to_s}.join(', ')}) VALUES (#{params_string});\n"
         when :update
           update_sql = "UPDATE \"#{@table.schema_name}\".\"#{@table.table_name}\" SET #{@set_sqls.join(', ')}"
           update_sql << " WHERE #{@where_sqls.join(' AND ')}" unless @where_sqls.empty?

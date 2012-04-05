@@ -436,7 +436,7 @@ module PLSQL
       :decimal => ['NUMERIC'],
       :string => ['TEXT', 'CHARACTER VARYING', 'VARCHAR', 'CHAR'],
       :date => ['DATE'],
-      :time => ['DATE', 'TIMESTAMP', 'TIMESTAMP WITH TIME ZONE', 'TIMESTAMP WITHOUT TIME ZONE'],
+      :time => ['DATE', 'TIMESTAMP','TIMESTAMP WITH TIME ZONE', 'TIMESTAMP WITHOUT TIME ZONE'],
       :boolean => ['BOOLEAN'],
       :hash => ['RECORD'],
       :array => ['ARRAY'],
@@ -509,11 +509,15 @@ module PLSQL
       @params = []
       
       add_return if return_metadata
-      
-      @call_sql << (defined?(JRuby)? 'call ': 'SELECT * FROM ')
-      @call_sql << "#{schema_name}." if schema_name
-      @call_sql << "#{package_name}." if package_name
-      @call_sql << "#{procedure_name}("
+
+      # construct procedure call if procedure name is available
+      # otherwise will get surrounding call_sql from @procedure (used for table statements)
+      if procedure_name
+        @call_sql << (defined?(JRuby)? 'call ': 'SELECT * FROM ')
+        @call_sql << "#{schema_name}." if schema_name
+        #@call_sql << "#{package_name}." if package_name
+        @call_sql << "#{procedure_name}("
+      end
       
       @bind_values = {}
       @bind_metadata = {}
@@ -541,8 +545,12 @@ module PLSQL
         end
       end
       @call_sql << @params.join(', ')
-      @call_sql << ')'
-      @call_sql << ' AS return' unless defined?(JRuby)
+      if procedure_name
+        @call_sql << ')'
+        @call_sql << ' AS return' unless defined?(JRuby)
+      else
+        @call_sql = @procedure.call_sql(@call_sql)
+      end
       
       @sql << '{' if defined?(JRuby)
       @sql << @call_sql
