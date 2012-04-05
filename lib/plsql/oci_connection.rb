@@ -6,6 +6,7 @@ rescue LoadError
 end
 
 require "plsql/oci8_patches"
+require "plsql/connection_helpers"
 
 # check ruby-oci8 version
 required_oci8_version = [2, 0, 3]
@@ -16,6 +17,8 @@ end
 
 module PLSQL
   class OCIConnection < Connection #:nodoc:
+    
+    include OraConnectionHelper
 
     def self.create_raw(params)
       connection_string = if params[:host]
@@ -23,7 +26,7 @@ module PLSQL
       else
         params[:database]
       end
-      new(OCI8.new(params[:username], params[:password], connection_string))
+      new(OCI8.new(params[:username], params[:password], connection_string), params)
     end
 
     def logoff
@@ -89,7 +92,7 @@ module PLSQL
 
       def bind_param(arg, value, metadata)
         type, length = @connection.plsql_to_ruby_data_type(metadata)
-        ora_value = @connection.ruby_value_to_ora_value(value, type)
+        ora_value = @connection.ruby_value_to_db_value(value, type)
         @raw_cursor.bind_param(arg, ora_value, type, length)
       end
       
@@ -98,12 +101,12 @@ module PLSQL
       end
 
       def [](key)
-        @connection.ora_value_to_ruby_value(@raw_cursor[key])
+        @connection.db_value_to_ruby_value(@raw_cursor[key])
       end
 
       def fetch
         row = @raw_cursor.fetch
-        row && row.map{|v| @connection.ora_value_to_ruby_value(v)}
+        row && row.map{|v| @connection.db_value_to_ruby_value(v)}
       end
 
       def fields
@@ -162,7 +165,7 @@ module PLSQL
       end
     end
 
-    def ruby_value_to_ora_value(value, type=nil)
+    def ruby_value_to_db_value(value, type=nil)
       type ||= value.class
       case type.to_s.to_sym
       when :Fixnum, :BigDecimal, :String
@@ -211,7 +214,7 @@ module PLSQL
               else
                 attr_type = elem.class
               end
-              ruby_value_to_ora_value(elem, attr_type)
+              ruby_value_to_db_value(elem, attr_type)
             end
             # construct collection value
             # TODO: change setting instance variable to appropriate ruby-oci8 method call when available
@@ -227,22 +230,22 @@ module PLSQL
               when OCI8::TDO::ATTR_NAMED_TYPE, OCI8::TDO::ATTR_NAMED_COLLECTION
                 # nested object type or collection
                 attr_type, attr_length = plsql_to_ruby_data_type(:data_type => 'OBJECT', :sql_type_name => attr.typeinfo.typename)
-                object_attrs[key] = ruby_value_to_ora_value(object_attrs[key], attr_type)
+                object_attrs[key] = ruby_value_to_db_value(object_attrs[key], attr_type)
               end
             end
             type.new(raw_oci_connection, object_attrs)
           end
-        # all other cases
+          # all other cases
         else
           value
         end
       end
     end
 
-    def ora_value_to_ruby_value(value)
+    def db_value_to_ruby_value(value)
       case value
       when Float, OraNumber, BigDecimal
-        ora_number_to_ruby_number(value)
+        db_number_to_ruby_number(value)
       when DateTime, OraDate
         ora_date_to_ruby_date(value)
       when OCI8::LOB
@@ -255,10 +258,10 @@ module PLSQL
       when OCI8::Object::Base
         tdo = raw_oci_connection.get_tdo_by_class(value.class)
         if tdo.is_collection?
-          value.to_ary.map{|e| ora_value_to_ruby_value(e)}
+          value.to_ary.map{|e| db_value_to_ruby_value(e)}
         else # object type
           tdo.attributes.inject({}) do |hash, attr|
-            hash[attr.name] = ora_value_to_ruby_value(value.instance_variable_get(:@attributes)[attr.name])
+            hash[attr.name] = db_value_to_ruby_value(value.instance_variable_get(:@attributes)[attr.name])
             hash
           end
         end
@@ -291,14 +294,14 @@ module PLSQL
     def raw_oci_connection
       if raw_connection.is_a? OCI8
         raw_connection
-      # ActiveRecord Oracle enhanced adapter puts OCI8EnhancedAutoRecover wrapper around OCI8
-      # in this case we need to pass original OCI8 connection
+        # ActiveRecord Oracle enhanced adapter puts OCI8EnhancedAutoRecover wrapper around OCI8
+        # in this case we need to pass original OCI8 connection
       else
         raw_connection.instance_variable_get(:@connection)
       end
     end
     
-    def ora_number_to_ruby_number(num)
+    def db_number_to_ruby_number(num)
       # return BigDecimal instead of Float to avoid rounding errors
       num == (num_to_i = num.to_i) ? num_to_i : (num.is_a?(BigDecimal) ? num : BigDecimal.new(num.to_s))
     end

@@ -4,7 +4,7 @@ require 'spec_helper'
 
 describe "Parameter type mapping /" do
   before(:all) do
-    plsql.connect! CONNECTION_PARAMS
+    plsql.connect! ORA_CONNECTION_PARAMS
   end
 
   after(:all) do
@@ -481,7 +481,7 @@ describe "Parameter type mapping /" do
       plsql.test_clob(large_text).should == large_text
     end
 
-    unless defined?(JRUBY_VERSION)
+    unless defined?(JRuby)
 
       it "should execute function with empty string and return nil (oci8 cannot pass empty CLOB parameter)" do
         text = ''
@@ -503,7 +503,7 @@ describe "Parameter type mapping /" do
 
   end
 
-  describe "Procedrue with CLOB parameter and return value" do
+  describe "Procedure with CLOB parameter and return value" do
   
     before(:all) do
       plsql.execute <<-SQL
@@ -531,7 +531,7 @@ describe "Parameter type mapping /" do
     end
   end
 
-  describe "Procedrue with BLOB parameter and return value" do
+  describe "Procedure with BLOB parameter and return value" do
   
     before(:all) do
       plsql.execute <<-SQL
@@ -866,7 +866,7 @@ describe "Parameter type mapping /" do
 
     it "should accept NULL as input parameter" do
       pending "NULL object type parameter support not yet released in ruby-oci8" unless defined?(JRUBY_VERSION)
-      plsql.test_employee_object(nil).should == nil
+      plsql.test_employee_object(nil).should be_nil
     end
 
   end
@@ -1649,7 +1649,7 @@ end
 describe "Synonyms /" do
 
   before(:all) do
-    plsql.connect! CONNECTION_PARAMS
+    plsql.connect! ORA_CONNECTION_PARAMS
   end
 
   after(:all) do
@@ -1777,7 +1777,7 @@ end
 describe "SYS.STANDARD procedures /" do
 
   before(:all) do
-    plsql.connect! CONNECTION_PARAMS
+    plsql.connect! ORA_CONNECTION_PARAMS
   end
 
   after(:all) do

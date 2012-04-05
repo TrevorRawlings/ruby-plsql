@@ -1,4 +1,5 @@
 module PLSQL #:nodoc:
+  
   module ArrayHelpers #:nodoc:
 
     def self.to_hash(keys, values) #:nodoc:
@@ -6,4 +7,5 @@ module PLSQL #:nodoc:
     end
 
   end
+  
 end

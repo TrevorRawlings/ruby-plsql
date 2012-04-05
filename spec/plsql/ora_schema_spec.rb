@@ -8,14 +8,14 @@ describe "Schema" do
   
 end
 
-describe "Schema connection" do
+describe "Oracle Schema connection" do
   
   before(:each) do
     @conn = get_connection
   end
 
   after(:each) do
-    unless defined? JRUBY_VERSION
+    unless defined?(JRuby)
       @conn.logoff
     else
       @conn.close
@@ -40,23 +40,23 @@ describe "Schema connection" do
   it "should return new schema name after reconnection" do
     plsql.connection = @conn
     plsql.schema_name.should == DATABASE_USERS_AND_PASSWORDS[0][0].upcase
-    plsql.connection = get_connection(1)
+    plsql.connection = get_connection(:user_number => 1)
     plsql.schema_name.should == DATABASE_USERS_AND_PASSWORDS[1][0].upcase
   end
 
   it "should return nil schema name if not connected" do
-    plsql(:xxx).schema_name.should == nil
+    plsql(:xxx).schema_name.should be_nil
   end
 
 end
 
-describe "Connection with connect!" do
+describe "Oracle Connection with connect!" do
 
   before(:all) do
     @username, @password = DATABASE_USERS_AND_PASSWORDS[0]
-    @database = DATABASE_NAME
+    @database = ORA_DATABASE_NAME
     @host = DATABASE_HOST
-    @port = DATABASE_PORT
+    @port = ORA_DATABASE_PORT
   end
 
   after(:each) do
@@ -106,7 +106,7 @@ describe "Connection with connect!" do
 
 end
 
-describe "Named Schema" do
+describe "Oracle Named Schema" do
   before(:all) do
     plsql.connection = @conn = get_connection
   end
@@ -133,7 +133,7 @@ describe "Named Schema" do
 
 end
 
-describe "Schema commit and rollback" do
+describe "Oracle Schema commit and rollback" do
   before(:all) do
     plsql.connection = @conn = get_connection
     plsql.connection.autocommit = false
@@ -175,9 +175,9 @@ describe "Schema commit and rollback" do
 
 end
 
-describe "ActiveRecord connection" do
+describe "Oracle ActiveRecord connection" do
   before(:all) do
-    ActiveRecord::Base.establish_connection(CONNECTION_PARAMS)
+    ActiveRecord::Base.establish_connection(ORA_CONNECTION_PARAMS)
   end
 
   before(:each) do
@@ -185,10 +185,10 @@ describe "ActiveRecord connection" do
   end
 
   it "should connect to test database" do
-    unless defined?(JRUBY_VERSION)
+    unless defined?(JRuby)
       plsql.connection.is_a?(PLSQL::OCIConnection).should be_true
     else
-      plsql.connection.is_a?(PLSQL::JDBCConnection).should be_true
+      plsql.connection.is_a?(PLSQL::JDBCORAConnection).should be_true
     end
   end
 
@@ -206,7 +206,7 @@ describe "ActiveRecord connection" do
   end
 end if defined?(ActiveRecord)
 
-describe "DBMS_OUTPUT logging" do
+describe "Oracle Output logging" do
 
   before(:all) do
     plsql.connection = get_connection
@@ -295,7 +295,7 @@ describe "DBMS_OUTPUT logging" do
   describe "with Activerecord connection" do
 
     before(:all) do
-      ActiveRecord::Base.establish_connection(CONNECTION_PARAMS)
+      ActiveRecord::Base.establish_connection(ORA_CONNECTION_PARAMS)
       plsql(:ar).activerecord_class = ActiveRecord::Base
       plsql(:ar).dbms_output_stream = @buffer
     end

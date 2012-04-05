@@ -6,8 +6,10 @@ require "bigdecimal"
   require "plsql/#{file}"
 end
 
-unless defined?(JRUBY_VERSION)
+unless defined?(JRuby)
   require "plsql/oci_connection"
+  require "plsql/pg_connection"
 else
-  require "plsql/jdbc_connection"
+  require "plsql/jdbc_ora_connection"
+  require "plsql/jdbc_pg_connection"
 end

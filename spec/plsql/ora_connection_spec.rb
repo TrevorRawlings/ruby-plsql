@@ -2,11 +2,11 @@
 
 require 'spec_helper'
 
-describe "Connection" do
+describe "Oracle Connection" do
 
   before(:all) do
-    @raw_conn = get_connection
-    @conn = PLSQL::Connection.create( @raw_conn )
+    @raw_conn = get_connection(:dialect => :oracle)
+    @conn = PLSQL::Connection.create(@raw_conn, :dialect => :oracle)
     @conn.set_time_zone
   end
 
@@ -19,25 +19,18 @@ describe "Connection" do
   end
 
   describe "create and destroy" do
+    
     before(:each) do
-      @conn = PLSQL::Connection.create( @raw_conn )
+      @conn = PLSQL::Connection.create(@raw_conn, :dialect => :oracle)
       @conn.set_time_zone
     end
 
     it "should create connection" do
       @conn.raw_connection.should == @raw_conn
     end
-
-    unless defined?(JRuby)
-      it "should be oci connection" do
-        @conn.should be_oci
-        @conn.raw_driver.should == :oci
-      end
-    else
-      it "should be jdbc connection" do
-        @conn.should be_jdbc
-        @conn.raw_driver.should == :jdbc
-      end
+    
+    it "should be ora connection" do
+      @conn.dialect.should == :oracle
     end
 
     it "should logoff connection" do
@@ -72,11 +65,11 @@ describe "Connection" do
       end
 
       it "should not translate Ruby Fixnum when OraNumber type specified" do
-        @conn.ruby_value_to_ora_value(100, OraNumber).should eql(100)
+        @conn.ruby_value_to_db_value(100, OraNumber).should eql(100)
       end
 
       it "should translate Ruby Bignum value to OraNumber when OraNumber type specified" do
-        ora_number = @conn.ruby_value_to_ora_value(12345678901234567890, OraNumber)
+        ora_number = @conn.ruby_value_to_db_value(12345678901234567890, OraNumber)
         ora_number.class.should == OraNumber
         ora_number.to_s.should == "12345678901234567890"
         # OraNumber has more numeric comparison methods in ruby-oci8 2.0
@@ -85,7 +78,7 @@ describe "Connection" do
 
       it "should translate Ruby String value to OCI8::CLOB when OCI8::CLOB type specified" do
         large_text = "x" * 100_000
-        ora_value = @conn.ruby_value_to_ora_value(large_text, OCI8::CLOB)
+        ora_value = @conn.ruby_value_to_db_value(large_text, OCI8::CLOB)
         ora_value.class.should == OCI8::CLOB
         ora_value.size.should == 100_000
         ora_value.rewind
@@ -93,30 +86,30 @@ describe "Connection" do
       end
 
       it "should translate Oracle OraNumber integer value to Fixnum" do
-        @conn.ora_value_to_ruby_value(OraNumber.new(100)).should eql(100)
+        @conn.db_value_to_ruby_value(OraNumber.new(100)).should eql(100)
       end
 
       it "should translate Oracle OraNumber float value to BigDecimal" do
-        @conn.ora_value_to_ruby_value(OraNumber.new(100.11)).should eql(BigDecimal("100.11"))
+        @conn.db_value_to_ruby_value(OraNumber.new(100.11)).should eql(BigDecimal("100.11"))
       end
 
       # ruby-oci8 2.0 returns DATE as Time or DateTime
       if OCI8::VERSION < '2.0.0'
         it "should translate Oracle OraDate value to Time" do
           now = OraDate.now
-          @conn.ora_value_to_ruby_value(now).should eql(now.to_time)
+          @conn.db_value_to_ruby_value(now).should eql(now.to_time)
         end
       end
 
       it "should translate Oracle CLOB value to String" do
         large_text = "x" * 100_000
         clob = OCI8::CLOB.new(@raw_conn, large_text)
-        @conn.ora_value_to_ruby_value(clob).should == large_text
+        @conn.db_value_to_ruby_value(clob).should == large_text
       end
       
     end
 
-  # JRuby
+    # JRuby
   else
 
     describe "JDBC data type conversions" do
@@ -138,17 +131,17 @@ describe "Connection" do
       end
       
       it "should not translate Ruby Fixnum when BigDecimal type specified" do
-        @conn.ruby_value_to_ora_value(100, BigDecimal).should == java.math.BigDecimal.new(100)
+        @conn.ruby_value_to_db_value(100, BigDecimal).should == java.math.BigDecimal.new(100)
       end
       
       it "should translate Ruby Bignum value to BigDecimal when BigDecimal type specified" do
-        big_decimal = @conn.ruby_value_to_ora_value(12345678901234567890, BigDecimal)
+        big_decimal = @conn.ruby_value_to_db_value(12345678901234567890, BigDecimal)
         big_decimal.should == java.math.BigDecimal.new("12345678901234567890")
       end
 
       it "should translate Ruby String value to Java::OracleSql::CLOB when Java::OracleSql::CLOB type specified" do
         large_text = "x" * 100_000
-        ora_value = @conn.ruby_value_to_ora_value(large_text, Java::OracleSql::CLOB)
+        ora_value = @conn.ruby_value_to_db_value(large_text, Java::OracleSql::CLOB)
         ora_value.class.should == Java::OracleSql::CLOB
         ora_value.length.should == 100_000
         ora_value.getSubString(1, ora_value.length) == large_text
@@ -156,29 +149,29 @@ describe "Connection" do
       end
 
       it "should translate Ruby nil value to empty Java::OracleSql::CLOB when Java::OracleSql::CLOB type specified" do
-        ora_value = @conn.ruby_value_to_ora_value(nil, Java::OracleSql::CLOB)
+        ora_value = @conn.ruby_value_to_db_value(nil, Java::OracleSql::CLOB)
         ora_value.class.should == Java::OracleSql::CLOB
         ora_value.isEmptyLob.should be_true
       end
 
       it "should translate Oracle BigDecimal integer value to Fixnum" do
-        @conn.ora_value_to_ruby_value(BigDecimal("100")).should eql(100)
+        @conn.db_value_to_ruby_value(BigDecimal("100")).should eql(100)
       end
       
       it "should translate Oracle BigDecimal float value to BigDecimal" do
-        @conn.ora_value_to_ruby_value(BigDecimal("100.11")).should eql(BigDecimal("100.11"))
+        @conn.db_value_to_ruby_value(BigDecimal("100.11")).should eql(BigDecimal("100.11"))
       end
 
       it "should translate Oracle CLOB value to String" do
         large_text = "āčē" * 100_000
-        clob = @conn.ruby_value_to_ora_value(large_text, Java::OracleSql::CLOB)
-        @conn.ora_value_to_ruby_value(clob).should == large_text
+        clob = @conn.ruby_value_to_db_value(large_text, Java::OracleSql::CLOB)
+        @conn.db_value_to_ruby_value(clob).should == large_text
         clob.freeTemporary
       end
 
       it "should translate empty Oracle CLOB value to nil" do
-        clob = @conn.ruby_value_to_ora_value(nil, Java::OracleSql::CLOB)
-        @conn.ora_value_to_ruby_value(clob).should be_nil
+        clob = @conn.ruby_value_to_db_value(nil, Java::OracleSql::CLOB)
+        @conn.db_value_to_ruby_value(clob).should be_nil
       end
 
     end
@@ -409,7 +402,7 @@ describe "Connection" do
   describe "session information" do
     it "should get database version" do
       # using Oracle version 10.2.0.4 for unit tests
-      @conn.database_version.should == DATABASE_VERSION.split('.').map{|n| n.to_i}
+      @conn.database_version.should == ORA_DATABASE_VERSION.split('.').map{|n| n.to_i}
     end
 
     it "should get session ID" do
@@ -483,7 +476,7 @@ describe "Connection" do
       # logoff will drop ruby temporary tables, it should do rollback before drop table
       @conn.logoff
       reconnect_connection
-      @conn.select_first("SELECT * FROM test_dummy_table").should == nil
+      @conn.select_first("SELECT * FROM test_dummy_table").should be_nil
       @conn.autocommit = old_autocommit
     end
 
