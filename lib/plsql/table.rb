@@ -300,7 +300,7 @@ module PLSQL
           raise ArgumentError, "Invalid column name #{k.inspect} specified as argument" unless (column_metadata = @table.columns[k])
           @argument_list[0] << k
           @arguments[0][k] = column_metadata
-          @set_sqls << "#{k}=:#{k}"
+          @set_sqls << "#{k}="
           @set_values << v
         end
       end
@@ -312,7 +312,7 @@ module PLSQL
             raise ArgumentError, "Invalid column name #{k.inspect} specified as argument" unless (column_metadata = @table.columns[k])
             @argument_list[0] << :"w_#{k}"
             @arguments[0][:"w_#{k}"] = column_metadata
-            @where_sqls << "#{k}=:w_#{k}"
+            @where_sqls << "#{k}="
             @where_values << v
           end
         when String
@@ -329,15 +329,21 @@ module PLSQL
         end
       end
 
-      def call_sql(params_string)
+      def call_sql(params)
+
         case @operation
-        when :insert
-          "INSERT INTO \"#{@table.schema_name.downcase}\".\"#{@table.table_name.downcase}\"(#{@argument_list[0].map{|a| a.to_s}.join(', ')}) VALUES (#{params_string});\n"
-        when :update
-          update_sql = "UPDATE \"#{@table.schema_name}\".\"#{@table.table_name}\" SET #{@set_sqls.join(', ')}"
-          update_sql << " WHERE #{@where_sqls.join(' AND ')}" unless @where_sqls.empty?
-          update_sql << ";\n"
-          update_sql
+          when :insert
+            params_string = params.join(', ')
+            "INSERT INTO \"#{@table.schema_name.downcase}\".\"#{@table.table_name.downcase}\"(#{@argument_list[0].map{|a| a.to_s}.join(', ')}) VALUES (#{params_string});\n"
+          when :update
+            update_sql = "UPDATE \"#{@table.schema_name}\".\"#{@table.table_name}\" SET "
+            update_sql << @set_sqls.map{ |set| set + params.shift }.join(', ')
+            if !@where_sqls.empty?
+              update_sql << " WHERE "
+              update_sql << @where_sqls.map{ |where| where + params.shift }.join( 'AND ')
+            end
+            update_sql << ";\n"
+            update_sql
         end
       end
 

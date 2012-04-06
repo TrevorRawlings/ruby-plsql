@@ -544,12 +544,13 @@ module PLSQL
           add_argument(arg, value)
         end
       end
-      @call_sql << @params.join(', ')
+
       if procedure_name
+        @call_sql << @params.join(', ')
         @call_sql << ')'
         @call_sql << ' AS return' unless defined?(JRuby)
       else
-        @call_sql = @procedure.call_sql(@call_sql)
+        @call_sql = @procedure.call_sql( @params)
       end
       
       @sql << '{' if defined?(JRuby)
